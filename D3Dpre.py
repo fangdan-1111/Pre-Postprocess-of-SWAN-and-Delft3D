@@ -100,6 +100,76 @@ def change_bnd_index(old_bnd_fname,x_index=None,y_index=None,new_bnd_fname=None)
     lines[-1]=lines[-1][0:75]+'          \n'
     with open(new_bnd_fname, 'w') as f:
         f.writelines(lines)
+    # # def change_bnd_index(old_bnd_fname,mm,nn,x_index=None,y_index=None,new_bnd_fname=None):
+    # # old_bnd_fname=r"E:\d3d_cases\dk_chongming\dept2_caolv35_202212\2D2022_cjk_cmmi5.bnd"
+    # # new_bnd_fname=r"E:\d3d_cases\chongming_flow\4_bound\chongming_flow_v1.bnd"
+    # # 注意：仅适合边界顺时针旋转的情况；并且上游流量边界每次都需要检查或重新设置
+    # import pandas as pd
+    # import warnings
+    # import numpy as np
+    # warnings.filterwarnings("ignore")
+    # colspecs = [(0,19),(21,22),(23,24),(25,30),(31,36),(37,42),(43,48),(49,64),(65,77),(78,82)]
+    # df = pd.read_fwf(old_bnd_fname,colspecs=colspecs,header=None,delimiter=None)
+    # df[5].values[-2]=x_index[-1]
+    # df[6].values[-2]=1
+    # if x_index is None:
+        # dic = read_bnd_nodes(old_bnd_fname)
+        # old_grid_fname = input("请输入已调好的模型的grd文件'：")
+        # new_grid_fname = input("请输入本模型的grd文件'：")
+        # x_coord, y_coord = read_grid_xy(old_grid_fname,dic['x_index'],dic['y_index'])
+        # x_index, y_index = read_grid_mn(new_grid_fname,x_coord,y_coord)
+        # x_index=np.array(x_index)+2
+        # y_index=np.array(y_index)+2
+    # if new_bnd_fname is None:
+        # new_bnd_fname=old_bnd_fname[-4:]+'_new.bnd'
+    # # 根据这里的index写入新的bnd文件
+
+    # n_ind=[]
+    # e_ind=[]
+    # s_ind=[]
+    # for i in range(len(x_index)-1):
+        # bound_name=df[0][i]
+        # if bound_name[0]=='n' or bound_name[0]=='N':
+            # n_ind.append(i)
+        # elif bound_name[0]=='e' or bound_name[0]=='E':
+            # e_ind.append(i)
+        # elif bound_name[0]=='s' or bound_name[0]=='S':
+            # s_ind.append(i)
+    # # max_m=max(x_index)
+    # # max_n=max(y_index)
+    # # min_m=1
+    # # min_n=1
+
+    # for i in range(len(x_index)-1):
+        # df[3][i]=x_index[i]
+        # df[4][i]=y_index[i]
+    # for i in range(len(x_index)-2):
+        # if i<max(n_ind):
+            # df[5][i]=df[3][i+1]-1
+            # df[6][i]=df[4][i+1]
+        # elif i==max(n_ind):
+            # df[5][i]=df[3][i+1]-1
+            # df[6][i]=df[4][i+1]
+            # df[4][i+1]=df[4][i+1]-1
+        # elif i<max(e_ind):
+            # df[5][i]=df[3][max(e_ind)]
+            # df[6][i]=df[4][i+1]
+        # elif i==max(e_ind):
+            # df[4][i+1]=1
+            # df[5][i]=df[3][i+1]
+            # df[6][i]=df[4][i+1]+1
+            # df[3][i+1]=df[3][i+1]-1
+        # elif i<=max(s_ind):
+            # df[4][i+1]=1
+            # df[5][i]=df[3][i+1]+1
+            # df[6][i]=df[4][i+1]
+
+    # lines=[None for _ in range(len(df[0]))]
+    # for i in range(len(df[0])):
+        # lines[i]=f'{df[0][i]:21s}{df[1][i]:2s}{df[2][i]:2s}{df[3][i]:5d}{df[4][i]:6d}{df[5][i]:6d}{df[6][i]:6d}  {df[7][i]:13.7e}0 {df[8][i]:13s}{df[9][i]}           \n'
+    # lines[-1]=lines[-1][0:75]+'          \n'
+    # with open(new_bnd_fname, 'w') as f:
+        # f.writelines(lines)
     
 def read_bnd_nodes(bnd_fname):
     # usage:dic=read_bnd_nodes(new_bnd_fname)
@@ -183,18 +253,47 @@ def read_grid_mn(grid_fname,x_coord=[0,1],y_coord=[0,1]):
         y_index.append(tem2)
     return x_index, y_index
 
-def write_bca(dic,bca_fname):
+def write_bca(dic,new_bca_fname):
     # 此函数用于创建一个d3d需要的开边界文件（边界类型：天文潮调和常数）
     # 需要输入一个dictionary类型变量，包含'end_points'（values=边界endpoints名称）、
-    # 'con_name'（values=考虑的分潮名）、'M2'等'con_name'中包含的分潮名
-    # （values=2*len(end_points)的list，列表的第一列是振幅，第二列是相位）
+    # 'con_name'（values=考虑的分潮名）、'A','B'等'end_points'中包含的点名
+    # （values=2*len(con_name)的list，列表的第一列是振幅，第二列是相位）
     lines=[]
-    for i in range(len(dic['x_index'])):
-        lines.append(f"{dic['end_points'][i]}\n")
-        for cname in dic['con_name']:
-            lines.append(f"{cname} {dic[cname][0][i]:13.7e}  {dic[cname][1][i]:13.7e}\n")
-    with open(bca_fname, 'w') as f:
+    for i,point in enumerate(dic['end_points']):
+        lines.append(f"{point}           \n")
+        for j,cname in enumerate(dic['con_name']):
+            lines.append(f"%-3s       {dic[point][j][0]: 13.7e} {dic[point][j][1]: 13.7e}\n" % cname)
+    with open(new_bca_fname, 'w') as f:
         f.writelines(lines)
+
+def read_bca(bca_fname,ncons=13,sort_ind=[7,8,6,9,5,3,4,2,1,0,11,12,10]):
+    if sort_ind is None:
+        sort_ind=[i for i in range(ncons)]
+    with open(bca_fname, 'r') as f:
+        lines=f.readlines()
+    ds={}
+    ds['end_points']=[]
+    npoints=0
+    for line in lines:
+        if len(line.split())==1 :
+            ds['end_points'].append(line.split()[0])
+            npoints+=1
+    ds['con_name']=[]
+    for i in range(npoints):
+        point=ds['end_points'][i]
+        ds[point]=[_ for _ in range(ncons)]
+        for j in range(ncons):
+            l_index=i*(ncons+1)+j+1
+            if i == 0:
+                ds['con_name'].append(lines[l_index].split()[0])
+            ds[point][j]=[float(lines[l_index].split()[1]),float(lines[l_index].split()[2])]
+        zip_s=sorted(zip(sort_ind,ds[point]))
+        _,ds[point]=zip(*zip_s)
+        ds[point]=np.array(ds[point])
+
+    zip_s=sorted(zip(sort_ind,ds['con_name']))
+    _,ds['con_name']=zip(*zip_s)
+    return ds
         
 def write_bct(start_time,end_time,bct_fname,new_bct_fname):
     import sys
@@ -207,12 +306,18 @@ def write_bct(start_time,end_time,bct_fname,new_bct_fname):
     # 输入：eg.    start_time=(2021,7,16)  end_time=(2021,7,31)    bct_fname=r"E:\d3d_cases\cjk\cjk_dm1.bct"
     
     # default settings for Datong discharge file
-    data_fname=rf'E:\d3d_cases\cjk\dk\{start_time[0]:4d}年大通流量.xlsx'
+    # 注意 :暂时没有2024年及之后的流量数据，先用2019年(平水年)的代替，需要先将bct模板文件中的reference time改为2019，生成后再修改为正确的年份
+    
+    if start_time[0]>=2024:
+        fname_year=2019
+    else:
+        fname_year=start_time[0]
+    data_fname=rf'E:\d3d_cases\cjk\dk\{fname_year:4d}年大通流量.xlsx'
     sheet_name='Sheet1'
     time_col_name='日期'
     time_input_format="%Y/%m/%d"
     time_output_format="%d %m %Y %H %M %S"
-    time_convert=-8# convert from Beijing Time to GMT
+    time_convert=-8# h, convert from Beijing Time to GMT
     var_col_name='流量（m³/s）'
 
     st=datetime.datetime(*start_time)

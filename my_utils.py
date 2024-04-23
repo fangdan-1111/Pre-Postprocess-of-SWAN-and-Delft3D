@@ -13,7 +13,7 @@ def my_colors(style, n_colors=5,color_set='green2brown'):
     import matplotlib.pyplot as plt
     import numpy as np
     if color_set=='green2brown':
-        all_colors=['#017987','#2b9ca1','#7bb2b0','#a4c6bb','#dbe9e3','#fff7ee','#f2dabe','#c7a37e','#7d674b','#332d15']
+        all_colors=['#017987','#2b9ca1','#7bb2b0','#a4c6bb','#f2dabe','#c7a37e','#7d674b','#332d15'] # '#dbe9e3','#fff7ee'太浅了，如果需要的话再插在'#a4c6bb','#f2dabe'之间
     elif color_set=='blue2red':
         all_colors=['#4257b0','#9be4d9','#fff1a6','#d64951','#9b9cbb']
     elif color_set=='classic':
@@ -31,7 +31,10 @@ def my_colors(style, n_colors=5,color_set='green2brown'):
     elif style == 'gradual_change':
         all_colors=np.array(all_colors)
         # ind = np.linspace(0,len(all_colors),n_colors,dtype='int32')
-        out_colors = all_colors[0:n_colors:]
+        if n_colors > len(all_colors)/2:
+            out_colors=all_colors[0:n_colors]
+        else:
+            out_colors = all_colors[0::2][0:n_colors]
     elif style == 'colormap':
         import matplotlib.colors as colors
         out_colors = colors.LinearSegmentedColormap.from_list("brw", all_colors, N=256)
@@ -181,6 +184,30 @@ def create_proj_dir(proj_name, nnest=1, homedir=r'E:\d3d_cases', subfolders=['/1
                 for folder in subfolders:
                     os.mkdir(rf'{proj_dir}\inner{j}\{folder}')
                     
+def format_str(data,n_data_per_line,formater=' 1.7E',nspace=1):
+    stri=''
+    ndata=len(data)
+    a="f'{x:"+formater
+    b="}'"
+    c=a+b
+    if ndata%n_data_per_line==0:
+        for i in range(ndata//n_data_per_line):
+            for j in range(n_data_per_line):
+                x=data[i*n_data_per_line+j]
+                stri=stri+nspace*" "+(eval(c))
+            stri=stri+'\n'
+    else:
+        for i in range(ndata//n_data_per_line):
+            for j in range(n_data_per_line):
+                x=data[i*n_data_per_line+j]
+                stri=stri+nspace*" "+(eval(c))
+            stri=stri+'\n'
+        for j in range(ndata%n_data_per_line):
+            x=data[(ndata//n_data_per_line)*n_data_per_line+j]
+            stri=stri+nspace*" "+(eval(c))
+        stri=stri+'\n'
+    return stri
+    
 def write_formated_file(array,fname,formater=' 1.7E',max_num_in_line=12):
     a="f'{elem:"+formater
     b="}  '"

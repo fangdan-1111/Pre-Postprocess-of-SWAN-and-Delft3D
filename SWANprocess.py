@@ -1,6 +1,7 @@
 '''
     此脚本用于SWAN文件的前后处理
 '''
+import numpy as np
 # preprocess
 def convert_grd(grid_fname,dep_fname,in_dir='',out_dir=''):
     '''
@@ -14,6 +15,30 @@ def convert_grd(grid_fname,dep_fname,in_dir='',out_dir=''):
     import D3Dpre
     import my_utils
     
+    # def format_str(data,n_data_per_line,nspace=1):
+        # # 在这里定义函数比使用my_utils.format_str()快很多，因为不需要eval(字符串)。
+        # stri=''
+        # if len(data.shape)>1:
+            # data=data.reshape(-1)
+        # ndata=len(data)
+        # if ndata%n_data_per_line==0:
+            # for i in range(ndata//n_data_per_line):
+                # for j in range(n_data_per_line):
+                    # x=data[i*n_data_per_line+j]
+                    # stri=stri+nspace*" "+f"{x: 1.7E}"
+                # stri=stri+'\n'
+        # else:
+            # for i in range(ndata//n_data_per_line):
+                # for j in range(n_data_per_line):
+                    # x=data[i*n_data_per_line+j]
+                    # stri=stri+nspace*" "+f"{x: 1.7E}"
+                # stri=stri+'\n'
+            # for j in range(ndata%n_data_per_line):
+                # x=data[(ndata//n_data_per_line)*n_data_per_line+j]
+                # stri=stri+nspace*" "+f"{x: 1.7E}"
+            # stri=stri+'\n'
+        # return stri
+    
     new_grd_name=rf"{out_dir}\{grid_fname[0:-3]}swan_grd"#swan网格文件
     new_dep_name = rf"{out_dir}\{dep_fname[0:-3]}swan_dep"
         
@@ -25,8 +50,10 @@ def convert_grd(grid_fname,dep_fname,in_dir='',out_dir=''):
     # tmp2=np.hstack((np.vstack((tmp,-999.*np.ones(tmp.shape[1]))),-999.*np.ones(tmp.shape[0]+1).reshape(-1,1)))
     # test = np.concatenate((tmp1,tmp2),axis=0)
     test = np.concatenate((all_grd[0,:,:],all_grd[1,:,:]),axis=0)
+    
     my_utils.write_formated_file(test,new_grd_name)
-    # np.savetxt(new_grd_name,test,fmt='% 1.7E',delimiter='    ')
+    # with open(new_grd_name, 'w') as f:
+        # f.write(format_str(test,12))
     
     nxny=[all_grd.shape[2],all_grd.shape[1]]
     
@@ -34,8 +61,10 @@ def convert_grd(grid_fname,dep_fname,in_dir='',out_dir=''):
     with open(rf'{in_dir}\{dep_fname}', 'r') as f:
         lines = [line.rstrip('\n').split() for line in f]
     all_dep=np.array([obj for sublist in lines for obj in sublist],dtype='float32').reshape([nxny[1]+1,nxny[0]+1])[0:-1,0:-1]
+    
     my_utils.write_formated_file(all_dep,new_dep_name)
-    # np.savetxt(new_dep_name,all_dep,fmt='% 1.7E',delimiter='    ')
+    # with open(new_dep_name, 'w') as f:
+        # f.write(format_str(all_dep,12))
     
 
 def convert_spc(ww3_spc_fname,swan_spc_fname=' ',n_freq_line = 4,n_dir_line = 4,n_spc_per_line = 7,factor = 1.4E-6):
@@ -556,7 +585,7 @@ def generate_plant_rf(grid_fname=r"E:\d3d_cases\test_swan\d3d_grid\curv.grd",
 
 def generate_nplant_file(grid_fname=r"E:\d3d_cases\test_swan\d3d_grid\curv.grd",
                         proj_name='swan',
-                        samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\document\13_我的数据\20231012 block3测量\20231012 block3测量.xlsx",
+                        samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\document\13_我的数据\20240309 block3测量\20240309 block3测量.xlsx",
                         samples_veg_edge_csv=r'X:\GEOSTAT\藨草区域20230105岸线.csv',
                         veg_edge_fname = r"E:\d3d_cases\test_swan\attribute_files\整个研究区域的岸线.csv",
                         sirpus_block_fnames = r"E:\d3d_cases\test_swan\attribute_files\藨草区域.csv",
@@ -789,8 +818,8 @@ def generate_nplant_file(grid_fname=r"E:\d3d_cases\test_swan\d3d_grid\curv.grd",
         if iplot:
             tcf = ax2.scatter(X,Y,c=srf1.field,cmap=my_utils.my_colors('colormap'),norm=norm,s=0.5)
             ax2.fill(sim_block[:,0],sim_block[:,1],color=colors[0],alpha=0.1,edgecolor = 'gray')
-            ax2.text(0.1,0.9,'SCIRPUS',transform=ax2.transAxes)
-            ax2.text(0.4,0.4,'OCEAN',transform=ax2.transAxes)
+            # ax2.text(0.1,0.9,'SCIRPUS',transform=ax2.transAxes)
+            # ax2.text(0.4,0.4,'OCEAN',transform=ax2.transAxes)
             cb=plt.colorbar(tcf)
             cb.ax.set_ylabel(var_long_name[i]+units[i])
             ax2.set_title(var_long_name[i]+" in each grid")
@@ -1098,26 +1127,31 @@ class Spc:
         
         plt.rcParams['font.family'] = 'Times New Roman'
         
-        y=self.freqs
-        x=self.dirs
+        Y=np.array(self.freqs)
+        X=np.array(self.dirs)
         z=self.spcs[nstep,nloc,:,:]
-        X,Y=np.meshgrid(x,y)
-        # z=z.reshape(z.shape[1],-1).T
+        # X,Y=np.meshgrid(x,y)
+        
+        # 为了保证图像在0度附近的连续性：
+        dtheta = np.diff(X).mean()
+        X=np.concatenate((X, X[-1:] + dtheta))
+        z=np.concatenate((z, z[:,0:1]), axis=1)
+        
         theta_offset=np.pi*90/180
         if ax==None:
-            ax=plt.subplot(polar=True,theta_offset=theta_offset)
+            ax=plt.subplot(theta_offset=theta_offset, projection='polar')
             ax.set_theta_direction(-1)
         else:
             if not str(type(ax))=="<class 'matplotlib.projections.polar.PolarAxes'>":
                 import warnings
                 warnings.warn("Given ax is not a polar ax. A new empty ax will be created.",UserWarning)
-                ax=plt.subplot(polar=True,theta_offset=theta_offset)
+                ax=plt.subplot(theta_offset=theta_offset, projection='polar')
                 ax.set_theta_direction(-1)
         # plt.style.use('ggplot')
         if type(cmap)==str:
             cmap=plt.colormaps[cmap]
         if ymax==None:
-            ymax=math.ceil(max(Y[z>0.05]*10))/10
+            ymax=math.ceil(max(Y[z.max(axis=1)>0.05]*10))/10
         # norm = matplotlib.colors.Normalize(vmin=0.005, vmax=z.max())
         if math.ceil(z.max()*100)/100<0.05:
             levels=np.linspace(0.01,math.ceil(z.max()*100)/100,9)
@@ -1130,8 +1164,8 @@ class Spc:
         plt.rgrids(np.linspace(0,ymax,3),angle=arrowdir,ha='right',color='black')
 
         cb=plt.colorbar(con)
-        cb.ax.set_ylabel("wave spectrum [m$^2$/Hz/rad]")
-        ax.text(np.pi*(arrowdir-5)/180,ymax*0.4,'frequencies [Hz]',ha='center',rotation=-(arrowdir-theta_offset*180/np.pi),color='black')
+        cb.ax.set_ylabel("wave spectrum /[m$^2$·(Hz·rad)$^-$$^1$]")
+        ax.text(np.pi*(arrowdir-5)/180,ymax*0.4,'frequencies /Hz',ha='center',rotation=-(arrowdir-theta_offset*180/np.pi),color='black')
         if isave:
             if fname==None:
                 fname=self.fname[:-3]+f'step{nstep}loc{nloc}.svg'
@@ -1211,9 +1245,14 @@ class Spc:
     
             
     
-def compare_vario_models(samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\document\13_我的数据\20231012 block3测量\20231012 block3测量.xlsx",
+def compare_vario_models(grid_fname=r"E:\d3d_cases\test_swan\d3d_grid\curv.grd",
+                        samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\document\13_我的数据\20231012 block3测量\20231012 block3测量.xlsx",
                         samples_veg_edge_csv=r'X:\GEOSTAT\藨草区域20230105岸线.csv',
-                        density_fac = 100,ispherical_gird=True,iplot=True):
+                        veg_edge_fname = r"E:\d3d_cases\test_swan\attribute_files\整个研究区域的岸线.csv",
+                        sirpus_block_fnames = r"E:\d3d_cases\test_swan\attribute_files\藨草区域.csv",
+                        sim_block_fname = r"E:\d3d_cases\test_swan\attribute_files\研究区域减去芦苇.csv",
+                        density_fac = 100,ispherical_gird=True,iplot=True,
+                        random_seed=20240116):
     '''
         此脚本用于对比各植被参数的半方差模型拟合情况。
         # 参数含义：
@@ -1237,6 +1276,8 @@ def compare_vario_models(samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\do
     from scipy.optimize import fmin_cobyla 
     import math
     import my_utils
+    import D3Dpre 
+    import re
     
     colors=my_utils.my_colors('gradual_change',n_colors=10,color_set='green2brown')
     rcParams['font.family'] = 'Times New Roman'
@@ -1301,6 +1342,7 @@ def compare_vario_models(samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\do
     #计算样本点和海岸线的最短距离
     target_points=np.array([lon,lat]).T
     sampledis_to_csl=np.array([my_utils.calculate_min_dis(target_points[i,:],land_bound) for i in range(target_points.shape[0])])
+    print(sampledis_to_csl)
     def plt_linear_trend(x,y,ylabel,xlabel='Distance to vegetation edge '+coord_unit,colors=[],ax=[],iplot=True):
         from scipy.stats import t
         if len(colors)==0:
@@ -1402,7 +1444,7 @@ def compare_vario_models(samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\do
         if ishow:
             if ax==[]:
                 ax = plt.gca()
-            # sca=ax.scatter(bin_center, vario, color=colors[9], label="empirical",marker='s')
+            sca=ax.scatter(bin_center, vario, color=colors[9], label="empirical",marker='s')
 
             
             
@@ -1413,7 +1455,7 @@ def compare_vario_models(samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\do
             paras[model] = para
             pcovs[model] = pcov
             if ishow:
-                fit_models[model].plot(func='vario_yadrenko',x_max=max_lag, ax=ax,color=colors[i],linestyle=linestyles[i//(len(models)//2)])
+                fit_models[model].plot(x_max=max_lag, ax=ax,color=colors[i],linestyle=linestyles[i//(len(models)//2)])
                 # ax.legend(loc="lower right")
         ranking = sorted(scores.items(), key=lambda item: item[1], reverse=True)
         if ishow:
@@ -1441,26 +1483,252 @@ def compare_vario_models(samples_xlsx=r"E:\OneDrive\OneDrive - stu.ouc.edu.cn\do
     variables=['ds_resi','ht_resi','dm_resi']
     units=[' [stems/m$^2$]',' [cm]',' [mm]',' [stems/0.01m$^2$]',' [cm]',' [mm]']
     var_long_name=['density','height','diamter','density','height','diamter']
+    
+    
+    # 第四步：读取网格、对应的岸线、藨草和芦苇区域
+    all_grd=D3Dpre.read_grid_xy(grid_fname,if_allgrd=True)
+    nxny=[all_grd.shape[2],all_grd.shape[1]]
+    points = all_grd.reshape([2,-1]).T
+    all_X = points[:,0]
+    all_Y = points[:,1]
+    def read_ov_csv(ovcsv_fname):
+        with open(ovcsv_fname, 'r') as f:
+            lines = [line.rstrip('\n').split() for line in f]
+        return np.array(re.split('[,;|\t]',lines[1][0][1:-1]),dtype="float").reshape(-1,2)
+    # 读取岸线.csv、藨草区域.csv、芦苇区域.csv、模拟区域.csv：
+    veg_edge=read_ov_csv(veg_edge_fname)
+    sim_block=read_ov_csv(sim_block_fname)
+    if not type(sirpus_block_fnames)==str:
+        sirpus_blocks=[read_ov_csv(fnm) for fnm in sirpus_block_fnames]
+    else:
+        sirpus_blocks=[read_ov_csv(sirpus_block_fnames)]
 
-    # paras={}
-    # pcovs={}
+    from shapely import geometry
+    points = all_grd.reshape([2,-1]).T
+
+    res1=[]
+    for sirpus_block in sirpus_blocks:
+        polygon = geometry.Polygon(sirpus_block)
+        res1.append([polygon.covers(geometry.Point(point)) for point in points])
+        
+    res1 = np.array(res1).squeeze()
+
+    res=np.zeros(res1.shape[1],dtype='bool')
+    for i in range(res1.shape[0]):
+        res=np.ma.mask_or(res1[i],res)
+
+    X = points[res,:][:,0]
+    Y = points[res,:][:,1]
+    
+    paras={}
+    pcovs={}
     r2s={}
     bst_mds={}
+    bins={}
+    varios={}
+    
     if iplot:
         rcParams['font.size'] = 7
         fig, axes = plt.subplots(1, 3, figsize=[12, 3],tight_layout=True)
-
+    
     for i,var in enumerate(variables):
-        _,_,r2s[var],bst_mds[var] ,_,_,_= test_vario_model((slon,slat),eval(var+'_field'),scale_length[i],lag[i],models,ax=axes[np.mod(i,3)],ishow=iplot)#i//3,
+        paras[var],pcovs[var],r2s[var],bst_mds[var],_,bins[var],varios[var] = test_vario_model((lon,lat),eval(var+'_field'),scale_length[i],lag[i],models,ishow=False)
+        model = bst_mds[var]
         if iplot:
-            axes[np.mod(i,3)].set_title('fitting plant '+var_long_name[i]+' to an isotropic model')
-            axes[np.mod(i,3)].set_xlabel('distance '+'[m]') #coord_unit
-            axes[np.mod(i,3)].set_ylabel('semivariance')
-            txt='        R$^2$: \n'
-            for model,r2 in r2s[var].items():
-                txt=txt+f'{model:>15}: {r2:<.5}\n'
-            axes[np.mod(i,3)].text(0.3,0,txt,transform=axes[np.mod(i,3)].transAxes, ha='left')
-            if i==len(variables)-1:
-                axes[np.mod(i,3)].legend(loc="lower right")
-    if iplot:
-        plt.savefig('compare_vario_models.png',dpi=200)
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=[9,4],tight_layout=True)
+            ax1.scatter(bins[var],varios[var], label="empirical",color=colors[0],marker='s')
+            model.plot("vario_axis", ax=ax1, x_max=0.0012, label="model",color=colors[1],linestyle='--')
+            txt=textwrap.fill(str(model),width=30, placeholder='   ')
+            ax1.text(0.36,0.3,txt,transform=ax1.transAxes)
+
+            ax1.legend(loc="lower right")
+            ax1.set_title('fitting plant '+var_long_name[i]+' to an isotropic model')
+            ax1.set_xlabel("distance "+coord_unit)
+            ax1.set_ylabel("semivariance")
+            
+        srf = gs.SRF(model, seed=random_seed)
+        field = srf((X, Y))
+        srf1=srf
+        if var=='ds_resi':
+            # srf1.field=(field+np.mean(ds))*100
+            minvar = 1000
+            maxvar = 4000
+            srf1.field=(field+trend(X,Y,veg_edge,slope[i],intercept[i]))*100
+            srf1.field[srf1.field>maxvar]=maxvar
+            return srf1,X,Y
+        elif var=='ht_resi':
+            minvar = 20
+            maxvar = 85
+            srf1.field=field+trend(X,Y,veg_edge,slope[i],intercept[i])
+            srf1.field[srf1.field>maxvar]=maxvar
+        elif var=='dm_resi':
+            minvar = 0
+            srf1.field=field+np.mean(dm)
+        srf1.field[srf1.field<minvar]=0
+
+        norm = matplotlib.colors.Normalize(vmin=max(minvar,min(srf1.field)), vmax=max(srf1.field))
+        if iplot:
+            tcf = ax2.scatter(X,Y,c=srf1.field,cmap=my_utils.my_colors('colormap'),norm=norm,s=0.5)
+            ax2.fill(sim_block[:,0],sim_block[:,1],color=colors[0],alpha=0.1,edgecolor = 'gray')
+            ax2.set_aspect("equal")
+            cb=plt.colorbar(tcf)
+            cb.ax.set_ylabel(var_long_name[i]+units[i])
+            ax2.set_title(var_long_name[i]+" in each grid")
+            ax2.set_ylabel("latitude "+coord_unit)
+            ax2.set_xlabel("longitude "+coord_unit)
+            
+            plt.savefig(var_long_name[i]+'.png',dpi=200)
+            
+            
+def tab2dic(filedir,fname,ngrid,st,dt):
+    '''
+        此函数用于读取swan TABLE命令输出的文件，filedir,fname分别是文件所在路径和文件名
+        ngrid是此table的位置（SWAN中定义的POINTS、CURVE等）点的个数
+        st是tab输出的起始时间，格式如(2024,4,8,0,0,0)
+        dt是tab输出的时间间隔，单位是分钟
+    '''
+
+    import datetime
+    
+    # initialize
+    if filedir is None:
+        tabfnm=fname
+    else:
+        tabfnm=filedir+'/'+fname
+    st=datetime.datetime(*st)
+    dt=datetime.timedelta(minutes=dt)
+
+    with open(tabfnm, 'r') as file:
+        lines = file.readlines()
+
+    keys_line = lines[4].split()[1:]
+    keys = [key.strip() for key in keys_line]
+
+    units_line = lines[5].split()[1:]
+    units = [unit.strip() for unit in units_line]
+
+    units_dict = {key: units[i] for i,key in enumerate(keys)}
+
+    data_dict = {key: [] for key in keys}
+
+    for line in lines[7:]:
+        values = line.split()
+        for i, key in enumerate(keys):
+            data_dict[key].append(float(values[i]))
+
+    for key in keys:
+        n = len(data_dict[key]) // ngrid  # 计算重复次数
+        data_dict[key] = np.array(data_dict[key]).reshape(n, ngrid)
+
+    if 'PkDir' in keys:
+        data_dict['PkDir'][data_dict['PkDir']<0]=0
+        data_dict['PkDir']=np.array([dirs-360 if dirs>180 else dirs for dirs in data_dict['PkDir'].reshape(-1)]).reshape(n, ngrid)
+
+    et=st+n*dt
+    times=np.arange(st,et,dt)
+    units_dict['times']=times
+    return data_dict,units_dict
+
+def tab_plot(filedir,fname,ngrid,st,dt,timesteps,suffix1='',ax=[],fig=[],var_index=[1,4,5,6],
+             var_lims_all = np.array([[0,500],[0,0.1],[0,0.5],[-5,5],[0,6],[0,0.001],[0,5000]])):
+    import numpy as np
+    from matplotlib import pyplot as plt
+    import matplotlib
+    import datetime
+    import os
+    import math
+    ds,units_dict=tab2dic(filedir,fname,ngrid,st,dt)
+    
+    var_names_all = np.array(list(ds.keys())) #['Hsig','Depth','PkDir','Tm01','Sveg','Nplant']
+
+    var_names=var_names_all[var_index]
+    var_lims=var_lims_all[var_index,:]
+    times=units_dict['times']
+    # ds=data_dict
+    def plot1(timestep,var_name,var_lims=None,formater = 'svg',ax=ax,fig=fig,isave=True,suffix='',out_dir=''):
+        variables = ds[var_name]
+        unit=units_dict[var_name]
+        if ax==[]:
+            fig,ax = plt.subplots(figsize=[9,2.25])
+        x = ds['Xp'][0,:]
+        variable = variables[timestep,:]
+        ax.plot(x, variable,label=var_name+suffix)#
+        ax.set_title(f"{var_name} {unit}\ntime:{times[timestep]}")
+        if not var_lims is None:
+            ax.set_ylim(*var_lims)
+        if isave:
+            plt.savefig(f"{out_dir}{var_name}{''.join(filter(str.isdigit, str(times[timestep])))[:-6]}output{suffix}.{formater}",format = formater,dpi=200)
+    def plot2(timestep,formater = 'svg',suffix='',out_dir=''):#同时绘制多个变量
+        nn = len(var_names)
+        # m = math.floor(nn**0.5)
+        m=nn # 固定为1列
+        n = math.ceil(nn/m)
+        fig,axes =plt.subplots(m,n,tight_layout=True,figsize=[9,2.25*nn])
+        for i in range(len(var_names)):
+            if m==1 and n==1:
+                ax=axes
+            elif m==1 or n==1:
+                ax=axes[i]
+            else:
+                ax=axes[i//n,np.mod(i,n)]
+            var_lim=var_lims if var_lims is None else var_lims[i]
+            plot1(timestep,var_names[i],var_lim,formater = formater,ax=ax,fig=fig,isave=False)
+        plt.savefig(f"{out_dir}{len(var_names)}vars{''.join(filter(str.isdigit, str(times[timestep])))[:-6]}output{suffix}.{formater}",format = formater,dpi=200)
+    if type(timesteps) == int:
+        if type(var_names)==str:
+            plot1(timesteps,var_names,var_lims,ax=ax,fig=fig,suffix=suffix1)
+        else:
+            plot2(timesteps,suffix=suffix1)
+    else:
+        if type(var_names)==str:
+            var_name=var_names
+        else:
+            var_name=str(len(var_names))+'vars'
+        
+        timesteps=np.arange(len(times))[1::int(timesteps)]
+        import glob
+        import matplotlib.animation as anim
+        import imageio
+
+        def convert_img2gif(var_name='1', imgs_dir='',suffix=''):
+            files = glob.glob(f'{imgs_dir}*_temp.png')
+            files.sort()
+            frames = []
+            for file in files:
+                frames.append(imageio.imread(file))
+            imageio.mimsave(f"{var_name}{suffix}.gif", frames, 'GIF', duration = 500,loop=0)
+            for file in files:
+                os.remove(file)
+
+        for i,timestep in enumerate(timesteps):
+            if type(var_names)==str:
+                plot1(timestep,var_names,var_lims,formater='png',suffix='_temp',out_dir='tempimage/')
+            else:
+                plot2(timestep,formater='png',suffix='_temp',out_dir='tempimage/')
+        convert_img2gif(var_name=var_name,imgs_dir='tempimage/',suffix=suffix1)
+
+def converge_tabs(files,nsim,ngrid,st,dt):
+    '''
+        这个函数用于将多次1D的模拟结果合并到一个大的dictionary中，每个变量的维度是(nsim,nt,ngrid)
+        files:文件名列表，最好从小到大排序
+        其他参数含义见tab2dic函数
+    '''
+    # initializing
+    if not len(files)==nsim:
+        print(f"没有检测到{nsim}个文件")
+        return
+    big_ds={}
+    ds_list=[]
+    for i,file in enumerate(files):
+        if i == 0:
+            ds,uds=tab2dic(None,file,ngrid,st,dt)
+        else:
+            ds,_=tab2dic(None,file,ngrid,st,dt)
+        ds_list.append(ds)
+    nt=len(uds['times'])
+
+    for key in list(ds_list[0].keys()):
+        big_ds[key]=np.zeros((nsim,nt,ngrid))
+        for i in range(nsim):
+            big_ds[key][i,:,:]=ds_list[i][key]
+    return big_ds
